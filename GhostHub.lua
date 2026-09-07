@@ -1,40 +1,41 @@
--- GhostHub by lucasgx605
-local player = game.Players.LocalPlayer
+-- GhostHub V3 - PC FIX
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
 local char = player.Character or player.CharacterAdded:Wait()
 local humanoid = char:WaitForChild("Humanoid")
 local hrp = char:WaitForChild("HumanoidRootPart")
-local UIS = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
+
 local flying = false
 local noclip = false
-local flySpeed = 50
+local speedOn = false
+local flySpeed = 60
 
-local gui = Instance.new("ScreenGui", game.CoreGui)
+-- GUI
+local gui = Instance.new("ScreenGui")
 gui.Name = "GhostHub"
+gui.ResetOnSpawn = false
+gui.Parent = game:GetService("CoreGui")
 
-local function createBtn(text, posY)
-    local b = Instance.new("TextButton", gui)
-    b.Size = UDim2.new(0, 120, 0, 40)
-    b.Position = UDim2.new(0, 10, 0, posY)
-    b.Text = text
-    b.BackgroundColor3 = Color3.fromRGB(30,30,30)
-    b.TextColor3 = Color3.fromRGB(255,255,255)
-    b.TextScaled = true
+local function btn(txt, y)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(0,140,0,40)
+    b.Position = UDim2.new(0,10,0,y)
+    b.Text = txt
+    b.Parent = gui
+    b.BackgroundColor3 = Color3.fromRGB(20,20,20)
+    b.TextColor3 = Color3.white
     return b
 end
 
-local flyBtn = createBtn("FLY: OFF", 10)
-local noclipBtn = createBtn("NOCLIP: OFF", 55)
-local speedBtn = createBtn("SPEED: 16", 100)
-
-local bv = Instance.new("BodyVelocity", hrp)
-bv.MaxForce = Vector3.new(9e9,9e9,9e9)
-bv.Velocity = Vector3.new(0,0,0)
-bv.Enabled = false
+local flyBtn = btn("FLY: OFF", 10)
+local noclipBtn = btn("NOCLIP: OFF", 55)
+local speedBtn = btn("SPEED: OFF", 100)
 
 flyBtn.MouseButton1Click:Connect(function()
     flying = not flying
-    bv.Enabled = flying
     flyBtn.Text = flying and "FLY: ON" or "FLY: OFF"
 end)
 
@@ -44,37 +45,68 @@ noclipBtn.MouseButton1Click:Connect(function()
 end)
 
 speedBtn.MouseButton1Click:Connect(function()
-    if humanoid.WalkSpeed == 16 then
+    speedOn = not speedOn
+    speedBtn.Text = speedOn and "SPEED: ON" or "SPEED: OFF"
+    humanoid.WalkSpeed = speedOn and 100 or 16
+end)
+
+-- Anti-reset do jogo
+RunService.Heartbeat:Connect(function()
+    if speedOn and humanoid.WalkSpeed ~= 100 then
         humanoid.WalkSpeed = 100
-        speedBtn.Text = "SPEED: 100"
-    else
-        humanoid.WalkSpeed = 16
-        speedBtn.Text = "SPEED: 16"
+    end
+    -- FLY
+    if flying then
+        local cam = workspace.CurrentCamera.CFrame
+        local dir = humanoid.MoveDirection -- funciona com WASD
+        local vel = Vector3.new(0,0,0)
+        
+        if dir.Magnitude > 0 then
+            vel = vel + cam.RightVector * dir.X
+            vel = vel - Vector3.new(cam.LookVector.X, 0, cam.LookVector.Z).Unit * dir.Z * -1
+            -- jeito mais simples e que funciona:
+            vel = Vector3.new(cam.LookVector.X * -dir.Z, 0, cam.LookVector.Z * -dir.Z) + Vector3.new(cam.RightVector.X * dir.X, 0, cam.RightVector.Z * dir.X)
+        end
+        
+        if UIS:IsKeyDown(Enum.KeyCode.Space) then
+            vel = vel + Vector3.new(0,1,0)
+        end
+        if UIS:IsKeyDown(Enum.KeyCode.LeftControl) or UIS:IsKeyDown(Enum.KeyCode.S) and false then
+        end
+        if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then
+            vel = vel - Vector3.new(0,1,0)
+        end
+
+        if vel.Magnitude > 0 then
+            hrp.Velocity = vel.Unit * flySpeed
+        else
+            hrp.Velocity = Vector3.new(0,0,0)
+        end
+        -- trava gravidade
+        hrp.AssemblyLinearVelocity = hrp.Velocity
     end
 end)
 
+-- NOCLIP tem que ser no Stepped
 RunService.Stepped:Connect(function()
-    if noclip and char then
-        for _, part in pairs(char:GetDescendants()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = false
+    if noclip then
+        for _, p in pairs(char:GetDescendants()) do
+            if p:IsA("BasePart") then
+                p.CanCollide = false
             end
         end
     end
 end)
 
-RunService.Heartbeat:Connect(function()
+-- Mantem Velocity zerando a gravidade enquanto voa
+RunService.RenderStepped:Connect(function()
     if flying then
-        local cam = workspace.CurrentCamera.CFrame
-        local move = Vector3.new(0,0,0)
-        if UIS:IsKeyDown(Enum.KeyCode.W) then move = move + cam.LookVector end
-        if UIS:IsKeyDown(Enum.KeyCode.S) then move = move - cam.LookVector end
-        if UIS:IsKeyDown(Enum.KeyCode.A) then move = move - cam.RightVector end
-        if UIS:IsKeyDown(Enum.KeyCode.D) then move = move + cam.RightVector end
-        if UIS:IsKeyDown(Enum.KeyCode.Space) then move = move + Vector3.new(0,1,0) end
-        if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then move = move - Vector3.new(0,1,0) end
-        bv.Velocity = move * flySpeed
-    else
-        bv.Velocity = Vector3.new(0,0,0)
+        for _, p in pairs(char:GetDescendants()) do
+            if p:IsA("BasePart") then
+                p.CanCollide = false
+            end
+        end
     end
 end)
+
+print("GhostHub V3 carregado")
